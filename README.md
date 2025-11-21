@@ -1,0 +1,1 @@
+Vibe-coded piece of garbage. Intentionally vulnerable.
