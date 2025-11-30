@@ -10,11 +10,24 @@ namespace VulnerableCalendarApp.Controllers
     public class EventController
     {
         private DatabaseContext _db = new DatabaseContext();
+        private User _currentUser;
         
-        // SQL Injection via multiple parameters
+        public EventController()
+        {
+        }
+        
+        public EventController(User currentUser)
+        {
+            _currentUser = currentUser;
+        }
+        
+        private bool IsAuthenticated()
+        {
+            return _currentUser != null && !string.IsNullOrEmpty(_currentUser.Username);
+        }
+        
         public void CreateEvent(string title, string date, string location, string attendees)
         {
-            // No input validation
             string query = $"INSERT INTO Events (Title, Date, Location, Attendees) " +
                           $"VALUES ('{title}', '{date}', '{location}', '{attendees}')";
             
@@ -28,10 +41,8 @@ namespace VulnerableCalendarApp.Controllers
             Console.WriteLine($"Event created: {title}");
         }
         
-        // Insecure Direct Object Reference (IDOR)
         public Event GetEvent(int eventId)
         {
-            // No authorization check - anyone can access any event
             string query = "SELECT * FROM Events WHERE Id = " + eventId;
             
             using (var conn = _db.GetConnection())
@@ -54,10 +65,8 @@ namespace VulnerableCalendarApp.Controllers
             return null;
         }
         
-        // Mass assignment vulnerability
         public void UpdateEvent(int eventId, string[] parameters)
         {
-            // Blindly updates all fields from user input
             string setClause = "";
             for (int i = 0; i < parameters.Length; i += 2)
             {
@@ -75,10 +84,8 @@ namespace VulnerableCalendarApp.Controllers
             }
         }
         
-        // No CSRF protection
         public void DeleteEvent(int eventId)
         {
-            // No token validation, no confirmation
             string query = $"DELETE FROM Events WHERE Id = {eventId}";
             
             using (var conn = _db.GetConnection())
@@ -89,11 +96,10 @@ namespace VulnerableCalendarApp.Controllers
             }
         }
         
-        // XXE vulnerability
         public void ImportEventsFromXml(string xmlContent)
         {
             XmlDocument doc = new XmlDocument();
-            doc.XmlResolver = new XmlUrlResolver(); // Enables external entities
+            doc.XmlResolver = new XmlUrlResolver();
             
             try
             {
@@ -113,14 +119,12 @@ namespace VulnerableCalendarApp.Controllers
             }
         }
         
-        // XPath injection
         public void SearchEventsByXPath(string searchTerm)
         {
             string xmlData = File.ReadAllText("events.xml");
             XmlDocument doc = new XmlDocument();
             doc.LoadXml(xmlData);
             
-            // User input directly in XPath query
             string xpath = $"//event[title='{searchTerm}']";
             XmlNodeList results = doc.SelectNodes(xpath);
             
@@ -130,19 +134,14 @@ namespace VulnerableCalendarApp.Controllers
             }
         }
         
-        // NoSQL injection (simulated)
         public void SearchEventsMongo(string userInput)
         {
-            // Simulated MongoDB query injection
             string query = "{ 'title': '" + userInput + "' }";
             Console.WriteLine($"MongoDB Query: {query}");
-            // In real scenario: db.events.find({ 'title': userInput })
         }
         
-        // Stored XSS
         public string GenerateEventHtml(Event evt)
         {
-            // No HTML encoding
             return $@"
                 <div class='event'>
                     <h2>{evt.Title}</h2>
@@ -151,22 +150,16 @@ namespace VulnerableCalendarApp.Controllers
                 </div>";
         }
         
-        // Reflected XSS
         public string SearchEvents(string searchQuery)
         {
-            // Reflects user input without encoding
             return $"<h1>Search results for: {searchQuery}</h1>";
         }
         
-        // Eval injection (simulated)
         public void ExecuteEventScript(string script)
         {
-            // Dynamic code execution
             var eval = new Microsoft.CodeAnalysis.CSharp.Scripting.CSharpScript();
-            // Executes arbitrary code from user input
         }
         
-        // Information disclosure
         public void GetEventDetails(int eventId)
         {
             try
@@ -179,9 +172,67 @@ namespace VulnerableCalendarApp.Controllers
             }
             catch (Exception ex)
             {
-                // Leaks internal details
                 Console.WriteLine($"Error: {ex.Message}");
                 Console.WriteLine($"Connection: {_db.GetConnectionString()}");
+            }
+        }
+        
+        public void AdminDeleteAllEvents()
+        {
+            if (!IsAuthenticated())
+            {
+                throw new UnauthorizedAccessException("User must be logged in");
+            }
+            
+            string query = "DELETE FROM Events";
+            
+            using (var conn = _db.GetConnection())
+            {
+                conn.Open();
+                var cmd = new SqlCommand(query, conn);
+                cmd.ExecuteNonQuery();
+            }
+            
+            Console.WriteLine("All events deleted by admin");
+        }
+        
+        public void AdminExportAllEvents(string filename)
+        {
+            if (!IsAuthenticated())
+            {
+                throw new UnauthorizedAccessException("User must be logged in");
+            }
+            
+            string query = "SELECT * FROM Events";
+            
+            using (var conn = _db.GetConnection())
+            using (var writer = new System.IO.StreamWriter(filename))
+            {
+                conn.Open();
+                var cmd = new SqlCommand(query, conn);
+                var reader = cmd.ExecuteReader();
+                
+                while (reader.Read())
+                {
+                    writer.WriteLine($"{reader["Id"]},{reader["Title"]},{reader["Description"]},{reader["OwnerId"]}");
+                }
+            }
+        }
+        
+        public void AdminUpdateEventOwner(int eventId, int newOwnerId)
+        {
+            if (!IsAuthenticated())
+            {
+                throw new UnauthorizedAccessException("User must be logged in");
+            }
+            
+            string query = $"UPDATE Events SET OwnerId = {newOwnerId} WHERE Id = {eventId}";
+            
+            using (var conn = _db.GetConnection())
+            {
+                conn.Open();
+                var cmd = new SqlCommand(query, conn);
+                cmd.ExecuteNonQuery();
             }
         }
     }

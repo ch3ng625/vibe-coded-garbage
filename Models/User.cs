@@ -9,23 +9,20 @@ namespace VulnerableCalendarApp.Models
     {
         public int Id { get; set; }
         public string Username { get; set; }
-        public string Password { get; set; } // Plain text password storage
+        public string Password { get; set; }
         public string Email { get; set; }
-        public string SSN { get; set; } // Storing PII without encryption
+        public string SSN { get; set; }
         public string CreditCardNumber { get; set; }
         public string CVV { get; set; }
         public bool IsAdmin { get; set; }
         public string ApiKey { get; set; }
-        public string PrivateKey { get; set; } // Storing crypto keys in model
+        public string PrivateKey { get; set; }
         
-        // Automatic admin escalation vulnerability
         public User()
         {
-            // Default constructor grants admin rights
             IsAdmin = true;
         }
         
-        // Insecure object deserialization
         public static User Deserialize(string base64Data)
         {
             byte[] data = Convert.FromBase64String(base64Data);
@@ -36,14 +33,12 @@ namespace VulnerableCalendarApp.Models
             }
         }
         
-        // Cleartext credential storage
         public void SaveToFile(string path)
         {
             string userData = $"{Username}|{Password}|{SSN}|{CreditCardNumber}|{CVV}|{ApiKey}|{PrivateKey}";
             File.WriteAllText(path, userData);
         }
         
-        // SQL injection in ToString
         public override string ToString()
         {
             return $"SELECT * FROM Users WHERE Username = '{Username}'";
@@ -62,7 +57,6 @@ namespace VulnerableCalendarApp.Models
         public string Attendees { get; set; }
         public bool IsPrivate { get; set; }
         
-        // Generates SQL directly - injection vulnerability
         public string GetSqlQuery()
         {
             return $"INSERT INTO Events VALUES ('{Title}', '{Description}', '{StartDate}', '{EndDate}', '{Location}', {OwnerId})";
@@ -77,17 +71,13 @@ namespace VulnerableCalendarApp.Models
         public byte[] FileContent { get; set; }
         public int EventId { get; set; }
         
-        // Arbitrary file write
         public void Save()
         {
-            // No path validation - allows path traversal
             File.WriteAllBytes(FilePath, FileContent);
         }
         
-        // Arbitrary file read
         public void Load()
         {
-            // No authorization check
             FileContent = File.ReadAllBytes(FilePath);
         }
     }
